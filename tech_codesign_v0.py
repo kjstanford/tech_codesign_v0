@@ -295,7 +295,7 @@ M_val = 2
 fclk_val = 1e9
 a_val = 0.5
 
-final_Area_eval = final_Area.subs({
+final_Area_eval = final_Area.xreplace({
     Lg: Lg_val,
     Wg: Wg_val,
     beta_p_n: beta_p_n_val,
@@ -303,7 +303,7 @@ final_Area_eval = final_Area.subs({
     Lc: Lc_val
 })
 
-final_Delay_eval = final_Delay.subs({
+final_Delay_eval = final_Delay.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -330,7 +330,7 @@ final_Delay_eval = final_Delay.subs({
 })
 
 
-final_Power_eval = final_Power.subs({
+final_Power_eval = final_Power.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
