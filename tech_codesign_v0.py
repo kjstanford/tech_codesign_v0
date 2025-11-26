@@ -4,6 +4,7 @@ from scipy.constants import k, e, epsilon_0, hbar, m_e
 from numpy import exp, log, sqrt, pi, abs, log10, tanh
 from scipy.optimize import fsolve
 import sympy
+from src.sim_util import custom_sech, custom_coth
 
 kB = k # Boltzmann's constant [JK^-1]
 q = e # elementary charge [C]
@@ -12,6 +13,9 @@ eps0 = epsilon_0 # vacuum permittivity [Fm^-1]
 T = 300 # Room Temperature [K]
 phit = kB*T/q # Thermal voltage at room temperature [V]
 kT = kB*T # Thermal energy at room temperature [J]
+
+def get_Lscale(eps_gox, eps_semi, tgox, tsemi):
+    return sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
 
 def symbolic_Rsd_model_cmg(Lc, Lext, Wc, Wext, rho_c, Rsh_c, Rsh_ext):
     """
@@ -25,7 +29,7 @@ def symbolic_Rsd_model_cmg(Lc, Lext, Wc, Wext, rho_c, Rsh_c, Rsh_ext):
     Rsh_ext: Extension sheet resistance [Ohm/sq]
     """
     LT = sympy.sqrt(rho_c / Rsh_c)
-    Rc = (rho_c / LT) * sympy.coth(Lc / LT) / Wc
+    Rc = (rho_c / LT) * custom_coth(Lc / LT) / Wc
     Rext = Rsh_ext * Lext / Wext
     Rsd = Rc + Rext
     return Rsd
@@ -37,9 +41,9 @@ def symbolic_sce_model_cmg(Leff, Vt0, Lscale):
     Vt0: Long channel threshold voltage [V]
     Lscale: SCE scale length [m]
     """
-    n0 = 1 / (1 - sympy.sech(Leff/(2*Lscale)))
-    delta = 0.5 * sympy.sech(Leff/(2*Lscale))
-    dVt = Vt0 * sympy.sech(Leff/(2*Lscale))
+    n0 = 1 / (1 - custom_sech(Leff/(2*Lscale)))
+    delta = 0.5 * custom_sech(Leff/(2*Lscale))
+    dVt = Vt0 * custom_sech(Leff/(2*Lscale))
     return n0, delta, dVt
 
 def symbolic_Cpar_model_cmg(Weff, Lext, eps_cap, tgate):
@@ -134,7 +138,7 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Rs_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
     Rd_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
 
-    Lscale =  sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
+    Lscale = get_Lscale(eps_gox, eps_semi, tgox, tsemi)
 
     Leff = Lg
     Weff_Id_n = 2 * Wg
@@ -248,18 +252,18 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Pstatic = Vdd * Ioff
     Ptotal = Pdynamic + Pstatic
 
-    return Ptotal, Ioff_n, Ioff_p, Cload
+    return Pdynamic, Pstatic, Ptotal, Ioff_n, Ioff_p, Cload
 
 def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a):
     Area = symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc)
     Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M)
-    Power, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    Power_dynamic, Power_static, Power_total, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
 
-    return Area, Delay, Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
+    return Area, Delay, Power_dynamic, Power_static, Power_total, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
 if __name__ == "__main__":
     Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M fclk a')
-    final_Area, final_Delay, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    final_Area, final_Delay, final_Power_dynamic, final_Power_static, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
     print("Final Symbolic Area Model:")
     # sympy.pprint(final_Area)
     print(final_Area)
@@ -508,7 +512,7 @@ if __name__ == "__main__":
     print(Cload_eval)
 
     # debugging below
-    Lscale =  sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
+    Lscale = get_Lscale(eps_gox, eps_semi, tgox, tsemi)
     Lscale_eval = Lscale.xreplace({
         eps_gox: eps_gox_val,
         eps_semi: eps_semi_val,
