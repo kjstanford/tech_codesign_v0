@@ -257,54 +257,55 @@ def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p
 
     return Area, Delay, Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
-Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M fclk a')
-final_Area, final_Delay, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
-print("Final Symbolic Area Model:")
-# sympy.pprint(final_Area)
-print(final_Area)
-print("\nFinal Symbolic Delay Model:")
-# sympy.pprint(final_Delay)
-print(final_Delay)
-print("\nFinal Symbolic Power Model:")
-# sympy.pprint(final_Power)
-print(final_Power)
+if __name__ == "__main__":
+    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M fclk a')
+    final_Area, final_Delay, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    print("Final Symbolic Area Model:")
+    # sympy.pprint(final_Area)
+    print(final_Area)
+    print("\nFinal Symbolic Delay Model:")
+    # sympy.pprint(final_Delay)
+    print(final_Delay)
+    print("\nFinal Symbolic Power Model:")
+    # sympy.pprint(final_Power)
+    print(final_Power)
 
-# Example evaluation
-Vdd_val = 1
-Vt0_val = 0.3
-Lg_val = 100e-9
-Wg_val = 100e-9
-beta_p_n_val = 2
-mD_fac_val = 0.5
-mu_eff_n_val = 250e-4
-mu_eff_p_val = 125e-4
-eps_gox_val = 17
-tgox_val = 5e-9
-eps_semi_val = 11.7
-tsemi_val = 10e-9
-Lext_val = 10e-9
-Lc_val = 20e-9
-eps_cap_val = 3.9
-rho_c_n_val = 7e-11
-rho_c_p_val = 7e-11
-Rsh_c_n_val = 9000
-Rsh_c_p_val = 9000
-Rsh_ext_n_val = 9000
-Rsh_ext_p_val = 9000
-FO_val = 4
-M_val = 2
-fclk_val = 1e9
-a_val = 0.5
+    # Example evaluation
+    Vdd_val = 1
+    Vt0_val = 0.3
+    Lg_val = 100e-9
+    Wg_val = 100e-9
+    beta_p_n_val = 2
+    mD_fac_val = 0.5
+    mu_eff_n_val = 250e-4
+    mu_eff_p_val = 125e-4
+    eps_gox_val = 17
+    tgox_val = 5e-9
+    eps_semi_val = 11.7
+    tsemi_val = 10e-9
+    Lext_val = 10e-9
+    Lc_val = 20e-9
+    eps_cap_val = 3.9
+    rho_c_n_val = 7e-11
+    rho_c_p_val = 7e-11
+    Rsh_c_n_val = 9000
+    Rsh_c_p_val = 9000
+    Rsh_ext_n_val = 9000
+    Rsh_ext_p_val = 9000
+    FO_val = 4
+    M_val = 2
+    fclk_val = 1e9
+    a_val = 0.5
 
-final_Area_eval = final_Area.xreplace({
+    final_Area_eval = final_Area.xreplace({
     Lg: Lg_val,
     Wg: Wg_val,
     beta_p_n: beta_p_n_val,
     Lext: Lext_val,
-    Lc: Lc_val
-})
+        Lc: Lc_val
+    })
 
-final_Delay_eval = final_Delay.xreplace({
+    final_Delay_eval = final_Delay.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -327,11 +328,10 @@ final_Delay_eval = final_Delay.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-
-final_Power_eval = final_Power.xreplace({
+    final_Power_eval = final_Power.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -356,17 +356,17 @@ final_Power_eval = final_Power.xreplace({
     FO: FO_val,
     M: M_val,
     fclk: fclk_val,
-    a: a_val
-})
+        a: a_val
+    })
 
-print("\nEvaluated Area (m^2):")
-print(final_Area_eval)
-print("\nEvaluated Delay (s):")
-print(final_Delay_eval)
-print("\nEvaluated Power (W):")
-print(final_Power_eval)
+    print("\nEvaluated Area (m^2):")
+    print(final_Area_eval)
+    print("\nEvaluated Delay (s):")
+    print(final_Delay_eval)
+    print("\nEvaluated Power (W):")
+    print(final_Power_eval)
 
-Ieff_n_eval = Ieff_n.xreplace({
+    Ieff_n_eval = Ieff_n.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -389,10 +389,10 @@ Ieff_n_eval = Ieff_n.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-Ieff_p_eval = Ieff_p.xreplace({
+    Ieff_p_eval = Ieff_p.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -415,10 +415,10 @@ Ieff_p_eval = Ieff_p.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-Ioff_n_eval = Ioff_n.xreplace({
+    Ioff_n_eval = Ioff_n.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -441,10 +441,10 @@ Ioff_n_eval = Ioff_n.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-Ioff_p_eval = Ioff_p.xreplace({
+    Ioff_p_eval = Ioff_p.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -467,10 +467,10 @@ Ioff_p_eval = Ioff_p.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-Cload_eval = Cload.xreplace({
+    Cload_eval = Cload.xreplace({
     Vdd: Vdd_val,
     Vt0: Vt0_val,
     Lg: Lg_val,
@@ -493,38 +493,38 @@ Cload_eval = Cload.xreplace({
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-    M: M_val
-})
+        M: M_val
+    })
 
-print("\nEvaluated Ieff_n (A):")
-print(Ieff_n_eval)
-print("\nEvaluated Ieff_p (A):")
-print(Ieff_p_eval)
-print("\nEvaluated Ioff_n (A):")
-print(Ioff_n_eval)
-print("\nEvaluated Ioff_p (A):")
-print(Ioff_p_eval)
-print("\nEvaluated Cload (F):")
-print(Cload_eval)
+    print("\nEvaluated Ieff_n (A):")
+    print(Ieff_n_eval)
+    print("\nEvaluated Ieff_p (A):")
+    print(Ieff_p_eval)
+    print("\nEvaluated Ioff_n (A):")
+    print(Ioff_n_eval)
+    print("\nEvaluated Ioff_p (A):")
+    print(Ioff_p_eval)
+    print("\nEvaluated Cload (F):")
+    print(Cload_eval)
 
-# debugging below
-Lscale =  sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
-Lscale_eval = Lscale.xreplace({
-    eps_gox: eps_gox_val,
-    eps_semi: eps_semi_val,
-    tgox: tgox_val,
-    tsemi: tsemi_val
-})
-print("\nDebugging SCE Model Outputs:")
-print("Lscale:", Lscale_eval)
-n0_eval, delta_eval, dVt_eval = symbolic_sce_model_cmg(Lg_val, Vt0_val, Lscale_eval)
-print("n0:", n0_eval)
-print("delta:", delta_eval)
-print("dVt:", dVt_eval)
+    # debugging below
+    Lscale =  sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
+    Lscale_eval = Lscale.xreplace({
+        eps_gox: eps_gox_val,
+        eps_semi: eps_semi_val,
+        tgox: tgox_val,
+        tsemi: tsemi_val
+    })
+    print("\nDebugging SCE Model Outputs:")
+    print("Lscale:", Lscale_eval)
+    n0_eval, delta_eval, dVt_eval = symbolic_sce_model_cmg(Lg_val, Vt0_val, Lscale_eval)
+    print("n0:", n0_eval)
+    print("delta:", delta_eval)
+    print("dVt:", dVt_eval)
 
-Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
-Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
-print("\nDebugging Rsd Model Outputs:")
-print("Rsd_n (Ohm):", Rsd_n_eval)
-print("Rsd_p (Ohm):", Rsd_p_eval)
+    Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
+    Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
+    print("\nDebugging Rsd Model Outputs:")
+    print("Rsd_n (Ohm):", Rsd_n_eval)
+    print("Rsd_p (Ohm):", Rsd_p_eval)
 
