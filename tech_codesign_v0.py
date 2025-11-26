@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Add codesign root directory to Python path
+current_file = Path(__file__).resolve()
+codesign_root = current_file.parent.parent.parent.parent.parent
+sys.path.insert(0, str(codesign_root))
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import k, e, epsilon_0, hbar, m_e
@@ -183,7 +191,7 @@ def symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc):
 
     return Atotal
 
-def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a):
+def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -210,7 +218,6 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
 
     FO : Fan-out [unit-less]
     M: Miller capacitance factor [unit-less]
-    fclk : Clock frequency [Hz]
     a : Activity factor [unit-less]
     """
 
@@ -248,22 +255,21 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Cload_p = FO * ( (2/3) * Cgc_on * Weff_Id_p * Lg + Cpar_p ) + M * Cpar_p
     Cload = Cload_n + Cload_p
 
-    Pdynamic = a * Cload * Vdd**2 * fclk
+    Edynamic = a * Cload * Vdd**2
     Pstatic = Vdd * Ioff
-    Ptotal = Pdynamic + Pstatic
 
-    return Pdynamic, Pstatic, Ptotal, Ioff_n, Ioff_p, Cload
+    return Edynamic, Pstatic, Ioff_n, Ioff_p, Cload
 
-def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a):
+def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
     Area = symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc)
     Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M)
-    Power_dynamic, Power_static, Power_total, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
 
-    return Area, Delay, Power_dynamic, Power_static, Power_total, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
+    return Area, Delay, Edynamic, Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
 if __name__ == "__main__":
-    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M fclk a')
-    final_Area, final_Delay, final_Power_dynamic, final_Power_static, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M a')
+    final_Area, final_Delay, final_Edynamic, final_Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
     print("Final Symbolic Area Model:")
     # sympy.pprint(final_Area)
     print(final_Area)
@@ -272,6 +278,8 @@ if __name__ == "__main__":
     print(final_Delay)
     print("\nFinal Symbolic Power Model:")
     # sympy.pprint(final_Power)
+    fclk_val = 1e9
+    final_Power = final_Edynamic * fclk_val + final_Pstatic
     print(final_Power)
 
     # Example evaluation
@@ -298,7 +306,6 @@ if __name__ == "__main__":
     Rsh_ext_p_val = 9000
     FO_val = 4
     M_val = 2
-    fclk_val = 1e9
     a_val = 0.5
 
     final_Area_eval = final_Area.xreplace({
@@ -359,7 +366,6 @@ if __name__ == "__main__":
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
     M: M_val,
-    fclk: fclk_val,
         a: a_val
     })
 
