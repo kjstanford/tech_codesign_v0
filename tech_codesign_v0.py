@@ -23,7 +23,10 @@ phit = kB*T/q # Thermal voltage at room temperature [V]
 kT = kB*T # Thermal energy at room temperature [J]
 
 def get_Lscale(eps_gox, eps_semi, tgox, tsemi):
-    return sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
+    # NOTE: this equation comes from page 102 of "FinFET Modeling for IC Simulation and Design," but there is a typo
+    # regarding the first term inside the square root. It should probably be changed to eps_semi / eps_gox instead of eps_gox / eps_semi.
+    # So we have done that here.
+    return sympy.sqrt( (eps_semi / eps_gox) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
 
 def symbolic_Rsd_model_cmg(Lc, Lext, Wc, Wext, rho_c, Rsh_c, Rsh_ext):
     """
