@@ -286,16 +286,16 @@ if __name__ == "__main__":
     print(final_Power)
 
     # Example evaluation
-    Vdd_val = 1
-    Vt0_val = 0.3
-    Lg_val = 100e-9
-    Wg_val = 100e-9
+    Vdd_val = 2
+    Vt0_val = 1.16
+    Lg_val = 52.6e-9
+    Wg_val = 871.1e-9
     beta_p_n_val = 2
     mD_fac_val = 0.5
     mu_eff_n_val = 250e-4
     mu_eff_p_val = 125e-4
-    eps_gox_val = 17
-    tgox_val = 5e-9
+    eps_gox_val = 3.9
+    tgox_val = 17.5e-9
     eps_semi_val = 11.7
     tsemi_val = 10e-9
     Lext_val = 10e-9
@@ -534,6 +534,7 @@ if __name__ == "__main__":
     print("n0:", n0_eval)
     print("delta:", delta_eval)
     print("dVt:", dVt_eval)
+    print("effective Vt:", Vt0_val - dVt_eval - delta_eval * Vdd_val)
 
     Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
     Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
