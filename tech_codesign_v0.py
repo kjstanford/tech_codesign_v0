@@ -1,9 +1,18 @@
+import sys
+from pathlib import Path
+
+# Add codesign root directory to Python path
+current_file = Path(__file__).resolve()
+codesign_root = current_file.parent.parent.parent.parent.parent
+sys.path.insert(0, str(codesign_root))
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import k, e, epsilon_0, hbar, m_e
 from numpy import exp, log, sqrt, pi, abs, log10, tanh
 from scipy.optimize import fsolve
 import sympy
+from src.sim_util import custom_sech, custom_coth
 
 kB = k # Boltzmann's constant [JK^-1]
 q = e # elementary charge [C]
@@ -12,6 +21,12 @@ eps0 = epsilon_0 # vacuum permittivity [Fm^-1]
 T = 300 # Room Temperature [K]
 phit = kB*T/q # Thermal voltage at room temperature [V]
 kT = kB*T # Thermal energy at room temperature [J]
+
+def get_Lscale(eps_gox, eps_semi, tgox, tsemi):
+    # NOTE: this equation comes from page 102 of "FinFET Modeling for IC Simulation and Design," but there is a typo
+    # regarding the first term inside the square root. It should probably be changed to eps_semi / eps_gox instead of eps_gox / eps_semi.
+    # So we have done that here.
+    return sympy.sqrt( (eps_semi / eps_gox) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
 
 def symbolic_Rsd_model_cmg(Lc, Lext, Wc, Wext, rho_c, Rsh_c, Rsh_ext):
     """
@@ -25,7 +40,7 @@ def symbolic_Rsd_model_cmg(Lc, Lext, Wc, Wext, rho_c, Rsh_c, Rsh_ext):
     Rsh_ext: Extension sheet resistance [Ohm/sq]
     """
     LT = sympy.sqrt(rho_c / Rsh_c)
-    Rc = (rho_c / LT) * sympy.coth(Lc / LT) / Wc
+    Rc = (rho_c / LT) * custom_coth(Lc / LT) / Wc
     Rext = Rsh_ext * Lext / Wext
     Rsd = Rc + Rext
     return Rsd
@@ -37,9 +52,9 @@ def symbolic_sce_model_cmg(Leff, Vt0, Lscale):
     Vt0: Long channel threshold voltage [V]
     Lscale: SCE scale length [m]
     """
-    n0 = 1 / (1 - sympy.sech(Leff/(2*Lscale)))
-    delta = 0.5 * sympy.sech(Leff/(2*Lscale))
-    dVt = Vt0 * sympy.sech(Leff/(2*Lscale))
+    n0 = 1 / (1 - custom_sech(Leff/(2*Lscale)))
+    delta = 0.5 * custom_sech(Leff/(2*Lscale))
+    dVt = Vt0 * custom_sech(Leff/(2*Lscale))
     return n0, delta, dVt
 
 def symbolic_Cpar_model_cmg(Weff, Lext, eps_cap, tgate):
@@ -134,7 +149,7 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Rs_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
     Rd_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
 
-    Lscale =  sympy.sqrt( (eps_semi / eps_gox) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
+    Lscale = get_Lscale(eps_gox, eps_semi, tgox, tsemi)
 
     Leff = Lg
     Weff_Id_n = 2 * Wg
@@ -179,7 +194,7 @@ def symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc):
 
     return Atotal
 
-def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a):
+def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -206,7 +221,6 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
 
     FO : Fan-out [unit-less]
     M: Miller capacitance factor [unit-less]
-    fclk : Clock frequency [Hz]
     a : Activity factor [unit-less]
     """
 
@@ -244,287 +258,106 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Cload_p = FO * ( (2/3) * Cgc_on * Weff_Id_p * Lg + Cpar_p ) + M * Cpar_p
     Cload = Cload_n + Cload_p
 
-    Pdynamic = a * Cload * Vdd**2 * fclk
+    Edynamic = a * Cload * Vdd**2
     Pstatic = Vdd * Ioff
-    Ptotal = Pdynamic + Pstatic
 
-    return Ptotal, Ioff_n, Ioff_p, Cload
+    return Edynamic, Pstatic, Ioff_n, Ioff_p, Cload
 
-def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a):
+def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
     Area = symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc)
     Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M)
-    Power, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
+    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
 
-    return Area, Delay, Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
+    return Area, Delay, Edynamic, Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
-Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M fclk a')
-final_Area, final_Delay, final_Power, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, fclk, a)
-print("Final Symbolic Area Model:")
-# sympy.pprint(final_Area)
-print(final_Area)
-print("\nFinal Symbolic Delay Model:")
-# sympy.pprint(final_Delay)
-print(final_Delay)
-print("\nFinal Symbolic Power Model:")
-# sympy.pprint(final_Power)
-print(final_Power)
+if __name__ == "__main__":
+    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M a')
+    final_Area, final_Delay, final_Edynamic, final_Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
+    print("Final Symbolic Area Model:")
+    # sympy.pprint(final_Area)
+    print(final_Area)
+    print("\nFinal Symbolic Delay Model:")
+    # sympy.pprint(final_Delay)
+    print(final_Delay)
+    print("\nFinal Symbolic Power Model:")
+    # sympy.pprint(final_Power)
+    fclk_val = 1e9
+    final_Power = final_Edynamic * fclk_val + final_Pstatic
+    print(final_Power)
 
-# Example evaluation
-Vdd_val = 1
-Vt0_val = 0.3
-Lg_val = 100e-9
-Wg_val = 100e-9
-beta_p_n_val = 2
-mD_fac_val = 0.5
-mu_eff_n_val = 250e-4
-mu_eff_p_val = 125e-4
-eps_gox_val = 17
-tgox_val = 5e-9
-eps_semi_val = 11.7
-tsemi_val = 10e-9
-Lext_val = 10e-9
-Lc_val = 20e-9
-eps_cap_val = 3.9
-rho_c_n_val = 7e-11
-rho_c_p_val = 7e-11
-Rsh_c_n_val = 9000
-Rsh_c_p_val = 9000
-Rsh_ext_n_val = 9000
-Rsh_ext_p_val = 9000
-FO_val = 4
-M_val = 2
-fclk_val = 1e9
-a_val = 0.5
+    # Example evaluation
+    Vdd_val = 2
+    Vt0_val = 1.16
+    Lg_val = 52.6e-9
+    Wg_val = 871.1e-9
+    beta_p_n_val = 2
+    mD_fac_val = 0.5
+    mu_eff_n_val = 250e-4
+    mu_eff_p_val = 125e-4
+    eps_gox_val = 3.9
+    tgox_val = 17.5e-9
+    eps_semi_val = 11.7
+    tsemi_val = 10e-9
+    Lext_val = 10e-9
+    Lc_val = 20e-9
+    eps_cap_val = 3.9
+    rho_c_n_val = 7e-11
+    rho_c_p_val = 7e-11
+    Rsh_c_n_val = 9000
+    Rsh_c_p_val = 9000
+    Rsh_ext_n_val = 9000
+    Rsh_ext_p_val = 9000
+    FO_val = 4
+    M_val = 2
+    a_val = 0.5
 
-final_Area_eval = final_Area.xreplace({
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    Lext: Lext_val,
-    Lc: Lc_val
-})
+    final_Area_eval = final_Area.xreplace({Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, Lext: Lext_val, Lc: Lc_val})
 
-final_Delay_eval = final_Delay.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    final_Delay_eval = final_Delay.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
+    final_Power_eval = final_Power.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val, a: a_val})
 
-final_Power_eval = final_Power.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val,
-    fclk: fclk_val,
-    a: a_val
-})
+    print("\nEvaluated Area (m^2):")
+    print(final_Area_eval)
+    print("\nEvaluated Delay (s):")
+    print(final_Delay_eval)
+    print("\nEvaluated Power (W):")
+    print(final_Power_eval)
 
-print("\nEvaluated Area (m^2):")
-print(final_Area_eval)
-print("\nEvaluated Delay (s):")
-print(final_Delay_eval)
-print("\nEvaluated Power (W):")
-print(final_Power_eval)
+    Ieff_n_eval = Ieff_n.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
-Ieff_n_eval = Ieff_n.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    Ieff_p_eval = Ieff_p.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
-Ieff_p_eval = Ieff_p.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    Ioff_n_eval = Ioff_n.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
-Ioff_n_eval = Ioff_n.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    Ioff_p_eval = Ioff_p.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
-Ioff_p_eval = Ioff_p.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    Cload_eval = Cload.xreplace({Vdd: Vdd_val, Vt0: Vt0_val, Lg: Lg_val, Wg: Wg_val, beta_p_n: beta_p_n_val, mD_fac: mD_fac_val, mu_eff_n: mu_eff_n_val, mu_eff_p: mu_eff_p_val, eps_gox: eps_gox_val, tgox: tgox_val, eps_semi: eps_semi_val, tsemi: tsemi_val, Lext: Lext_val, Lc: Lc_val, eps_cap: eps_cap_val, rho_c_n: rho_c_n_val, rho_c_p: rho_c_p_val, Rsh_c_n: Rsh_c_n_val, Rsh_c_p: Rsh_c_p_val, Rsh_ext_n: Rsh_ext_n_val, Rsh_ext_p: Rsh_ext_p_val, FO: FO_val, M: M_val})
 
-Cload_eval = Cload.xreplace({
-    Vdd: Vdd_val,
-    Vt0: Vt0_val,
-    Lg: Lg_val,
-    Wg: Wg_val,
-    beta_p_n: beta_p_n_val,
-    mD_fac: mD_fac_val,
-    mu_eff_n: mu_eff_n_val,
-    mu_eff_p: mu_eff_p_val,
-    eps_gox: eps_gox_val,
-    tgox: tgox_val,
-    eps_semi: eps_semi_val,
-    tsemi: tsemi_val,
-    Lext: Lext_val,
-    Lc: Lc_val,
-    eps_cap: eps_cap_val,
-    rho_c_n: rho_c_n_val,
-    rho_c_p: rho_c_p_val,
-    Rsh_c_n: Rsh_c_n_val,
-    Rsh_c_p: Rsh_c_p_val,
-    Rsh_ext_n: Rsh_ext_n_val,
-    Rsh_ext_p: Rsh_ext_p_val,
-    FO: FO_val,
-    M: M_val
-})
+    print("\nEvaluated Ieff_n (A):")
+    print(Ieff_n_eval)
+    print("\nEvaluated Ieff_p (A):")
+    print(Ieff_p_eval)
+    print("\nEvaluated Ioff_n (A):")
+    print(Ioff_n_eval)
+    print("\nEvaluated Ioff_p (A):")
+    print(Ioff_p_eval)
+    print("\nEvaluated Cload (F):")
+    print(Cload_eval)
 
-print("\nEvaluated Ieff_n (A):")
-print(Ieff_n_eval)
-print("\nEvaluated Ieff_p (A):")
-print(Ieff_p_eval)
-print("\nEvaluated Ioff_n (A):")
-print(Ioff_n_eval)
-print("\nEvaluated Ioff_p (A):")
-print(Ioff_p_eval)
-print("\nEvaluated Cload (F):")
-print(Cload_eval)
+    # debugging below
+    Lscale = get_Lscale(eps_gox, eps_semi, tgox, tsemi)
+    Lscale_eval = Lscale.xreplace({eps_gox: eps_gox_val, eps_semi: eps_semi_val, tgox: tgox_val, tsemi: tsemi_val})
+    print("\nDebugging SCE Model Outputs:")
+    print("Lscale:", Lscale_eval)
+    n0_eval, delta_eval, dVt_eval = symbolic_sce_model_cmg(Lg_val, Vt0_val, Lscale_eval)
+    print("n0:", n0_eval)
+    print("delta:", delta_eval)
+    print("dVt:", dVt_eval)
+    print("effective Vt:", Vt0_val - dVt_eval - delta_eval * Vdd_val)
 
-# debugging below
-Lscale =  sympy.sqrt( (eps_gox / eps_semi) * tgox * tsemi * ( 1 + eps_gox * tsemi / ( 4 * eps_semi * tgox ) ) )
-Lscale_eval = Lscale.xreplace({
-    eps_gox: eps_gox_val,
-    eps_semi: eps_semi_val,
-    tgox: tgox_val,
-    tsemi: tsemi_val
-})
-print("\nDebugging SCE Model Outputs:")
-print("Lscale:", Lscale_eval)
-n0_eval, delta_eval, dVt_eval = symbolic_sce_model_cmg(Lg_val, Vt0_val, Lscale_eval)
-print("n0:", n0_eval)
-print("delta:", delta_eval)
-print("dVt:", dVt_eval)
-
-Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
-Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
-print("\nDebugging Rsd Model Outputs:")
-print("Rsd_n (Ohm):", Rsd_n_eval)
-print("Rsd_p (Ohm):", Rsd_p_eval)
-
+    Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
+    Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
+    print("\nDebugging Rsd Model Outputs:")
+    print("Rsd_n (Ohm):", Rsd_n_eval)
+    print("Rsd_p (Ohm):", Rsd_p_eval)
