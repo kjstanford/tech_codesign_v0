@@ -112,7 +112,7 @@ def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, de
 
     return Id
 
-def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M):
+def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, R_wire, C_wire):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -177,7 +177,13 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Cload_p = FO * ( (2/3) * Cgc_on * Weff_Id_p * Lg + Cpar_p ) + M * Cpar_p
     Cload = Cload_n + Cload_p
 
-    tdelay = ( Cload / 2 ) * ( 1 / Ieff_n + 1 / Ieff_p )
+    C_diff = Cpar_n + Cpar_p
+
+    I_avg = (Ieff_n + Ieff_p) / 2
+    R_avg = Vdd / I_avg
+
+    tdelay = R_avg * (C_diff + C_wire/2) + (R_avg + R_wire) * (C_wire/2 + Cload)
+    #tdelay = ( Cload / 2 ) * ( 1 / Ieff_n + 1 / Ieff_p )
 
     return tdelay, Ieff_n, Ieff_p, Cload
 
@@ -194,7 +200,7 @@ def symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc):
 
     return Atotal
 
-def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
+def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, C_wire):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -258,21 +264,24 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Cload_p = FO * ( (2/3) * Cgc_on * Weff_Id_p * Lg + Cpar_p ) + M * Cpar_p
     Cload = Cload_n + Cload_p
 
-    Edynamic = a * Cload * Vdd**2
+    C_diff = Cpar_n + Cpar_p
+    Ctotal = Cload + C_wire + C_diff
+
+    Edynamic = a * Ctotal * Vdd**2
     Pstatic = Vdd * Ioff
 
     return Edynamic, Pstatic, Ioff_n, Ioff_p, Cload
 
-def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
+def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, R_wire, C_wire):
     Area = symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc)
-    Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M)
-    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
+    Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, R_wire, C_wire)
+    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, C_wire)
 
     return Area, Delay, Edynamic, Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
 if __name__ == "__main__":
-    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M a')
-    final_Area, final_Delay, final_Edynamic, final_Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
+    Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, R_wire, C_wire = sympy.symbols('Vdd Vt0 Lg Wg beta_p_n mD_fac mu_eff_n mu_eff_p eps_gox tgox eps_semi tsemi Lext Lc eps_cap rho_c_n rho_c_p Rsh_c_n Rsh_c_p Rsh_ext_n Rsh_ext_p FO M a R_wire C_wire')
+    final_Area, final_Delay, final_Edynamic, final_Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload = final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, R_wire, C_wire)
     print("Final Symbolic Area Model:")
     # sympy.pprint(final_Area)
     print(final_Area)
@@ -310,6 +319,8 @@ if __name__ == "__main__":
     FO_val = 4
     M_val = 2
     a_val = 0.5
+    R_wire_val = 1e-3
+    C_wire_val = 1e-15
 
     final_Area_eval = final_Area.xreplace({
     Lg: Lg_val,
@@ -342,7 +353,9 @@ if __name__ == "__main__":
     Rsh_ext_n: Rsh_ext_n_val,
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
-        M: M_val
+        M: M_val,
+    R_wire: R_wire_val,
+    C_wire: C_wire_val
     })
 
     final_Power_eval = final_Power.xreplace({
@@ -369,7 +382,9 @@ if __name__ == "__main__":
     Rsh_ext_p: Rsh_ext_p_val,
     FO: FO_val,
     M: M_val,
-        a: a_val
+        a: a_val,
+    R_wire: R_wire_val,
+    C_wire: C_wire_val
     })
 
     print("\nEvaluated Area (m^2):")
