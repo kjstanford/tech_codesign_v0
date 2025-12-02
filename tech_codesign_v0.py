@@ -1,11 +1,3 @@
-import sys
-from pathlib import Path
-
-# Add codesign root directory to Python path
-current_file = Path(__file__).resolve()
-codesign_root = current_file.parent.parent.parent.parent.parent
-sys.path.insert(0, str(codesign_root))
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import k, e, epsilon_0, hbar, m_e
