@@ -132,12 +132,12 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     M: Miller capacitance factor [unit-less]
     """
     Wc_n = Wg
-    Wext_n = 2 * Wg
+    Wext_n = Wg # CORRECTION from 2*Wg to Wg
     Rs_n = symbolic_Rsd_model_cmg(Lc, Lext, Wc_n, Wext_n, rho_c_n, Rsh_c_n, Rsh_ext_n)
     Rd_n = symbolic_Rsd_model_cmg(Lc, Lext, Wc_n, Wext_n, rho_c_n, Rsh_c_n, Rsh_ext_n)
 
     Wc_p = beta_p_n * Wg
-    Wext_p = 2 * beta_p_n * Wg
+    Wext_p = beta_p_n * Wg # CORRECTION from 2*beta_p_n*Wg to beta_p_n*Wg
     Rs_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
     Rd_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
 
@@ -169,7 +169,7 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     Cload_p = FO * ( (2/3) * Cgc_on * Weff_Id_p * Lg + Cpar_p ) + M * Cpar_p
     Cload = Cload_n + Cload_p
 
-    tdelay = ( Cload / 2 ) * ( 1 / Ieff_n + 1 / Ieff_p )
+    tdelay = ( Cload / 2 ) * ( 1 / Ieff_n + 1 / Ieff_p ) * Vdd # CORRECTION: added Vdd term
 
     return tdelay, Ieff_n, Ieff_p, Cload
 
@@ -217,12 +217,12 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     """
 
     Wc_n = Wg
-    Wext_n = 2 * Wg
+    Wext_n = Wg # CORRECTION from 2*Wg to Wg 
     Rs_n = symbolic_Rsd_model_cmg(Lc, Lext, Wc_n, Wext_n, rho_c_n, Rsh_c_n, Rsh_ext_n)
     Rd_n = symbolic_Rsd_model_cmg(Lc, Lext, Wc_n, Wext_n, rho_c_n, Rsh_c_n, Rsh_ext_n)
 
     Wc_p = beta_p_n * Wg
-    Wext_p = 2 * beta_p_n * Wg
+    Wext_p = beta_p_n * Wg # CORRECTION from 2*beta_p_n*Wg to beta_p_n*Wg
     Rs_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
     Rd_p = symbolic_Rsd_model_cmg(Lc, Lext, Wc_p, Wext_p, rho_c_p, Rsh_c_p, Rsh_ext_p)
 
@@ -278,23 +278,23 @@ if __name__ == "__main__":
     print(final_Power)
 
     # Example evaluation
-    Vdd_val = 2
-    Vt0_val = 1.16
-    Lg_val = 52.6e-9
-    Wg_val = 871.1e-9
+    Vdd_val = 1
+    Vt0_val = 0.5
+    Lg_val = 40e-9
+    Wg_val = 120e-9
     beta_p_n_val = 2
     mD_fac_val = 0.5
     mu_eff_n_val = 250e-4
     mu_eff_p_val = 125e-4
     eps_gox_val = 3.9
-    tgox_val = 17.5e-9
+    tgox_val = 2.2e-9
     eps_semi_val = 11.7
     tsemi_val = 10e-9
     Lext_val = 10e-9
     Lc_val = 20e-9
     eps_cap_val = 3.9
-    rho_c_n_val = 7e-11
-    rho_c_p_val = 7e-11
+    rho_c_n_val = 7e-12
+    rho_c_p_val = 7e-12
     Rsh_c_n_val = 9000
     Rsh_c_p_val = 9000
     Rsh_ext_n_val = 9000
@@ -348,8 +348,9 @@ if __name__ == "__main__":
     print("dVt:", dVt_eval)
     print("effective Vt:", Vt0_val - dVt_eval - delta_eval * Vdd_val)
 
-    Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, 2*Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
-    Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, 2*beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
+    # debugging Rsd model
+    Rsd_n_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, Wg_val, Wg_val, rho_c_n_val, Rsh_c_n_val, Rsh_ext_n_val)
+    Rsd_p_eval = symbolic_Rsd_model_cmg(Lc_val, Lext_val, beta_p_n_val*Wg_val, beta_p_n_val*Wg_val, rho_c_p_val, Rsh_c_p_val, Rsh_ext_p_val)
     print("\nDebugging Rsd Model Outputs:")
-    print("Rsd_n (Ohm):", Rsd_n_eval)
-    print("Rsd_p (Ohm):", Rsd_p_eval)
+    print("Rsd_n (Ohm-um):", Rsd_n_eval*Wg_val*1e6)
+    print("Rsd_p (Ohm-um):", Rsd_p_eval*beta_p_n_val*Wg_val*1e6)
