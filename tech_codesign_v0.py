@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from scipy.constants import k, e, epsilon_0, hbar, m_e
 from numpy import exp, log, sqrt, pi, abs, log10, tanh
 from scipy.optimize import fsolve
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import sympy
 from src.sim_util import custom_sech, custom_coth
 
@@ -85,6 +88,7 @@ def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, de
 
     n = n0
     Vt = Vt0 - dVt - delta * Vds
+    print(f"Vth_effective: {Vt.concrete}")
     C2D = q**2 * mD / (pi * hbar**2)
     lambda_eff = 2 * phit * mu_eff / vT
     Lcrit_sat = ksee * Leff
