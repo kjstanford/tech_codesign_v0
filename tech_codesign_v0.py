@@ -63,7 +63,7 @@ def symbolic_Cpar_model_cmg(Weff, Lext, eps_cap, tgate):
     Cpar = (eps_cap * eps0 / Lext) * Weff * tgate
     return Cpar
 
-def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, delta, dVt, Rs, Rd):
+def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, delta, dVt, Rs, Rd, disable_sce=False):
     """ Return symbolic expression for Id for codesign purposes """
     """
     Inputs:
@@ -86,9 +86,13 @@ def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, de
     beta = 2.0  # default value
     theta = 1.0  # default value
 
-    n = n0
+    if disable_sce:
+        n = 1
+        delta = 0
+        dVt = 0
+    else:
+        n = n0
     Vt = Vt0 - dVt - delta * Vds
-    print(f"Vth_effective: {Vt.concrete}")
     C2D = q**2 * mD / (pi * hbar**2)
     lambda_eff = 2 * phit * mu_eff / vT
     Lcrit_sat = ksee * Leff
@@ -108,7 +112,7 @@ def symbolic_mvs_model(Vgs, Vds, Vt0, Leff, Weff, mD, mu_eff, vT, Cgc_on, n0, de
 
     return Id
 
-def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M):
+def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, disable_sce=False):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -155,12 +159,12 @@ def symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     mD = mD_fac * m0
     vT = sympy.sqrt(2 * kT * mD / (pi * mD**2))
 
-    Ilow_n = symbolic_mvs_model(Vdd/2, Vdd, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n)
-    Ihigh_n = symbolic_mvs_model(Vdd, Vdd/2, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n)
+    Ilow_n = symbolic_mvs_model(Vdd/2, Vdd, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n, disable_sce)
+    Ihigh_n = symbolic_mvs_model(Vdd, Vdd/2, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n, disable_sce)
     Ieff_n = ( Ilow_n + Ihigh_n ) / 2
 
-    Ilow_p = symbolic_mvs_model(Vdd/2, Vdd, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p)
-    Ihigh_p = symbolic_mvs_model(Vdd, Vdd/2, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p)
+    Ilow_p = symbolic_mvs_model(Vdd/2, Vdd, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p, disable_sce)
+    Ihigh_p = symbolic_mvs_model(Vdd, Vdd/2, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p, disable_sce)
     Ieff_p = ( Ilow_p + Ihigh_p ) / 2
 
     tgate = 2 * Lg
@@ -190,7 +194,7 @@ def symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc):
 
     return Atotal
 
-def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
+def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, disable_sce=False):
     """
     Inputs:
     Vdd : Supply voltage [V]
@@ -240,8 +244,8 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
     mD = mD_fac * m0
     vT = sympy.sqrt(2 * kT * mD / (pi * mD**2))
 
-    Ioff_n = symbolic_mvs_model(0, Vdd, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n)
-    Ioff_p = symbolic_mvs_model(0, Vdd, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p)
+    Ioff_n = symbolic_mvs_model(0, Vdd, Vt0, Leff, Weff_Id_n, mD, mu_eff_n, vT, Cgc_on, n0, delta, dVt, Rs_n, Rd_n, disable_sce)
+    Ioff_p = symbolic_mvs_model(0, Vdd, Vt0, Leff, Weff_Id_p, mD, mu_eff_p, vT, Cgc_on, n0, delta, dVt, Rs_p, Rd_p, disable_sce)
     Ioff = Ioff_n + Ioff_p
 
     tgate = 2 * Lg
@@ -259,10 +263,10 @@ def symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p,
 
     return Edynamic, Pstatic, Ioff_n, Ioff_p, Cload
 
-def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a):
+def final_symbolic_models(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, disable_sce=False):
     Area = symbolic_area_model(Lg, Wg, beta_p_n, Lext, Lc)
-    Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M)
-    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a)
+    Delay, Ieff_n, Ieff_p, Cload = symbolic_delay_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, disable_sce)
+    Edynamic, Pstatic, Ioff_n, Ioff_p, Cload = symbolic_power_model(Vdd, Vt0, Lg, Wg, beta_p_n, mD_fac, mu_eff_n, mu_eff_p, eps_gox, tgox, eps_semi, tsemi, Lext, Lc, eps_cap, rho_c_n, rho_c_p, Rsh_c_n, Rsh_c_p, Rsh_ext_n, Rsh_ext_p, FO, M, a, disable_sce)
 
     return Area, Delay, Edynamic, Pstatic, Ieff_n, Ieff_p, Ioff_n, Ioff_p, Cload
 
